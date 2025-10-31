@@ -188,18 +188,40 @@ class Database {
 
   run(sql, params = []) {
     if (this.type === 'postgres') {
-      const pgSql = sql.replace(/\?/g, (match, index) => `$${index + 1}`);
-      if (pgSql.trim().toUpperCase().startsWith('INSERT') && !pgSql.includes('RETURNING')) {
-        sql = pgSql + ' RETURNING id';
-      } else {
-        sql = pgSql;
+      let pgSql = sql.replace(/\?/g, (match, index) => `$${index + 1}`); // Use let
+      
+      const isInsert = pgSql.trim().toUpperCase().startsWith('INSERT');
+      const hasReturning = pgSql.includes('RETURNING');
+      const isCustomersInsert = pgSql.includes('INTO customers');
+
+      if (isInsert && !hasReturning) {
+        if (isCustomersInsert) {
+          // Customer table's PK is user_id. We return this.
+          pgSql += ' RETURNING user_id'; 
+        } else {
+          // All other tables (agents, messages) use 'id' as the PK.
+          pgSql += ' RETURNING id';
+        }
       }
-      return this.connection.query(sql, params)
-        .then(res => ({
-          lastID: res.rows[0] ? res.rows[0].id : null,
-          changes: res.rowCount,
-        }));
+      
+      return this.connection.query(pgSql, params)
+        .then(res => {
+          let lastID = null;
+          if (res.rows[0]) {
+            // Default to 'id', which works for agents and messages
+            lastID = res.rows[0].id; 
+            if (isCustomersInsert) {
+              // But for customers, we use 'user_id'
+              lastID = res.rows[0].user_id;
+            }
+          }
+          return {
+            lastID: lastID,
+            changes: res.rowCount,
+          };
+        });
     } else {
+      // SQLite code (unchanged)
       return new Promise((resolve, reject) => {
         this.connection.run(sql, params, function(err) {
           if (err) reject(err);
