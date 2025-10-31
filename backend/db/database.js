@@ -160,7 +160,9 @@ class Database {
 
   query(sql, params = []) {
     if (this.type === 'postgres') {
-      const pgSql = sql.replace(/\?/g, (match, index) => `$${index + 1}`);
+      // Convert sqlite-style `?` placeholders to Postgres `$1, $2, ...`
+      let idx = 0;
+      const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
       return this.connection.query(pgSql, params).then(res => res.rows);
     } else {
       return new Promise((resolve, reject) => {
@@ -174,7 +176,8 @@ class Database {
 
   get(sql, params = []) {
     if (this.type === 'postgres') {
-      const pgSql = sql.replace(/\?/g, (match, index) => `$${index + 1}`);
+      let idx = 0;
+      const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
       return this.connection.query(pgSql, params).then(res => res.rows[0]);
     } else {
       return new Promise((resolve, reject) => {
@@ -188,7 +191,8 @@ class Database {
 
   run(sql, params = []) {
     if (this.type === 'postgres') {
-      let pgSql = sql.replace(/\?/g, (match, index) => `$${index + 1}`); // Use let
+      let idx = 0;
+      let pgSql = sql.replace(/\?/g, () => `$${++idx}`);
       
       const isInsert = pgSql.trim().toUpperCase().startsWith('INSERT');
       const hasReturning = pgSql.includes('RETURNING');
