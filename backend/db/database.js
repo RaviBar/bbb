@@ -160,9 +160,8 @@ class Database {
 
   query(sql, params = []) {
     if (this.type === 'postgres') {
-      // Convert sqlite-style `?` placeholders to Postgres `$1, $2, ...`
-      let idx = 0;
-      const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
+      let i = 0;
+      const pgSql = sql.replace(/\?/g, () => `$${++i}`);
       return this.connection.query(pgSql, params).then(res => res.rows);
     } else {
       return new Promise((resolve, reject) => {
@@ -176,8 +175,8 @@ class Database {
 
   get(sql, params = []) {
     if (this.type === 'postgres') {
-      let idx = 0;
-      const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
+      let i = 0;
+      const pgSql = sql.replace(/\?/g, () => `$${++i}`); // <-- THE FIX
       return this.connection.query(pgSql, params).then(res => res.rows[0]);
     } else {
       return new Promise((resolve, reject) => {
@@ -191,8 +190,8 @@ class Database {
 
   run(sql, params = []) {
     if (this.type === 'postgres') {
-      let idx = 0;
-      let pgSql = sql.replace(/\?/g, () => `$${++idx}`);
+      let i = 0;
+      let pgSql = sql.replace(/\?/g, () => `$${++i}`); // <-- THE FIX
       
       const isInsert = pgSql.trim().toUpperCase().startsWith('INSERT');
       const hasReturning = pgSql.includes('RETURNING');
@@ -200,10 +199,8 @@ class Database {
 
       if (isInsert && !hasReturning) {
         if (isCustomersInsert) {
-          // Customer table's PK is user_id. We return this.
           pgSql += ' RETURNING user_id'; 
         } else {
-          // All other tables (agents, messages) use 'id' as the PK.
           pgSql += ' RETURNING id';
         }
       }
@@ -212,10 +209,8 @@ class Database {
         .then(res => {
           let lastID = null;
           if (res.rows[0]) {
-            // Default to 'id', which works for agents and messages
             lastID = res.rows[0].id; 
             if (isCustomersInsert) {
-              // But for customers, we use 'user_id'
               lastID = res.rows[0].user_id;
             }
           }
