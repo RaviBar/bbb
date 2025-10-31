@@ -118,7 +118,6 @@ module.exports = (io) => {
       const replyResult = await db.run(
         `INSERT INTO messages (customer_id, message_body, timestamp, is_from_customer, agent_id, status, current_agent_id, urgency_level)
          VALUES (?, ?, ?, 0, ?, 'responded', ?, (SELECT urgency_level FROM messages WHERE id = ?))`,
-        // [THE FIX] Changed 'responseBody' to 'messageBody'
         [customer_id, messageBody, replyTs, agentId, agentId, messageId]
       );
 

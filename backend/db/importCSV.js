@@ -81,7 +81,7 @@ async function importCSVData() {
           'INSERT INTO messages (customer_id, message_body, timestamp, is_from_customer, status, urgency_level) VALUES (?, ?, ?, ?, ?, ?)',
           [message.customer_id, message.message_body, message.timestamp, message.is_from_customer, message.status, message.urgency_level]
         );
-      } catch (error) {
+      }catch (error) {
         console.error('Error inserting message:', error);
       }
     }
