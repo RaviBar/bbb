@@ -5,6 +5,8 @@ const { Server } = require('socket.io');
 const db = require('./db/database');
 require('dotenv').config();
 
+
+const { importCSVData } = require('./db/importCSV');
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
@@ -105,11 +107,21 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start server
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`WebSocket server ready`);
+
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Production environment detected. Checking database...');
+    setTimeout(async () => {
+      try {
+        await importCSVData();
+      } catch (err) {
+        console.error('Error during automatic CSV import:', err);
+      }
+    }, 10000);
+  }
 });
 
 module.exports = { app, io };

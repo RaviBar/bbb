@@ -1,16 +1,28 @@
+// backend/db/importCSV.js
 const fs = require('fs');
 const csv = require('csv-parser');
 const db = require('./database');
+const path = require('path'); 
 
 async function importCSVData() {
   try {
-    console.log('Starting CSV import...');
+    // --- CHANGE 1: IDEMPOTENCY CHECK ---
+    // Check if messages already exist before importing.
+    const messageCount = await db.get('SELECT COUNT(*) as count FROM messages');
+    if (messageCount && messageCount.count > 0) {
+      console.log('Database already populated. Skipping CSV import.');
+      return; 
+    }
+   
+
+    console.log('Database is empty. Starting CSV import...');
     
-    const csvPath = process.argv[2] || '../GeneralistRails_Project_MessageData.csv';
+    const csvPath = process.argv[2] || path.join(__dirname, '../GeneralistRails_Project_MessageData.csv');
     
     if (!fs.existsSync(csvPath)) {
-      console.log('CSV file not found. Please provide the correct path.');
-      console.log('Usage: node importCSV.js <path-to-csv-file>');
+      console.log(`CSV file not found at: ${csvPath}`);
+      console.log('Please ensure "GeneralistRails_Project_MessageData.csv" is in the "backend" directory.');
+      console.log('Usage: node db/importCSV.js <path-to-csv-file>');
       return;
     }
 
@@ -26,28 +38,32 @@ async function importCSVData() {
           const timestamp = new Date(row['Timestamp (UTC)']);
           const messageBody = row['Message Body'];
 
-          customers.add(userId);
-          messages.push({
-            customer_id: userId,
-            message_body: messageBody,
-            timestamp: timestamp.toISOString(),
-            is_from_customer: true,
-            status: 'pending'
-          });
+          if (!isNaN(userId) && messageBody) { 
+            customers.add(userId);
+            messages.push({
+              customer_id: userId,
+              message_body: messageBody,
+              timestamp: timestamp.toISOString(),
+              is_from_customer: true,
+              status: 'pending'
+            });
+          }
         })
         .on('end', resolve)
         .on('error', reject);
     });
 
+    const insertCustomerSQL = db.type === 'postgres' 
+      ? 'INSERT INTO customers (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING'
+      : 'INSERT OR IGNORE INTO customers (user_id) VALUES (?)';
+
     // Insert customers
     console.log(`Found ${customers.size} unique customers`);
     for (const userId of customers) {
-      await db.run('INSERT OR IGNORE INTO customers (user_id) VALUES (?)', [userId]);
+      await db.run(insertCustomerSQL, [userId]);
     }
 
-    // Insert messages
     console.log(`Importing ${messages.length} messages...`);
-    let insertedCount = 0;
     
     for (const message of messages) {
       try {
@@ -55,7 +71,6 @@ async function importCSVData() {
           'INSERT INTO messages (customer_id, message_body, timestamp, is_from_customer, status) VALUES (?, ?, ?, ?, ?)',
           [message.customer_id, message.message_body, message.timestamp, message.is_from_customer, message.status]
         );
-        insertedCount++;
       } catch (error) {
         console.error('Error inserting message:', error);
       }
@@ -63,23 +78,27 @@ async function importCSVData() {
 
     console.log('CSV import completed successfully!');
     
-    const customerCount = await db.get('SELECT COUNT(*) as count FROM customers');
-    const messageCount = await db.get('SELECT COUNT(*) as count FROM messages');
+    const finalCustomerCount = await db.get('SELECT COUNT(*) as count FROM customers');
+    const finalMessageCount = await db.get('SELECT COUNT(*) as count FROM messages');
     
     console.log(`\nSummary:`);
-    console.log(`- Customers: ${customerCount.count}`);
-    console.log(`- Messages: ${messageCount.count}`);
+    console.log(`- Customers: ${finalCustomerCount.count}`);
+    console.log(`- Messages: ${finalMessageCount.count}`);
     console.log(`- Database Type: ${db.type}`);
 
   } catch (error) {
     console.error('Error importing CSV data:', error);
   } finally {
-    db.close();
+
   }
 }
 
 if (require.main === module) {
-  importCSVData();
+  importCSVData().finally(() => {
+    if (db.type !== 'postgres') { 
+       db.close();
+    }
+  });
 }
 
 module.exports = { importCSVData };
