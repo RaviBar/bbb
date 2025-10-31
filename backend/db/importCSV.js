@@ -40,12 +40,22 @@ async function importCSVData() {
 
           if (!isNaN(userId) && messageBody) { 
             customers.add(userId);
+            const lower = messageBody.toLowerCase();
+            const urgentKeywords = [
+              'loan', 'approval', 'disbursed', 'urgent', 'help', 
+              'immediate', 'rejected', 'denied', 'payment', 
+              'batch number', 'validate', 'review', 'crb', 
+              'clearance', 'pay'
+            ];
+            const isUrgent = urgentKeywords.some(k => lower.includes(k));
+            const urgency = isUrgent ? 'high' : 'normal';
             messages.push({
               customer_id: userId,
               message_body: messageBody,
               timestamp: timestamp.toISOString(),
               is_from_customer: true,
-              status: 'pending'
+              status: 'pending',
+              urgency_level: urgency
             });
           }
         })
@@ -68,8 +78,8 @@ async function importCSVData() {
     for (const message of messages) {
       try {
         await db.run(
-          'INSERT INTO messages (customer_id, message_body, timestamp, is_from_customer, status) VALUES (?, ?, ?, ?, ?)',
-          [message.customer_id, message.message_body, message.timestamp, message.is_from_customer, message.status]
+          'INSERT INTO messages (customer_id, message_body, timestamp, is_from_customer, status, urgency_level) VALUES (?, ?, ?, ?, ?, ?)',
+          [message.customer_id, message.message_body, message.timestamp, message.is_from_customer, message.status, message.urgency_level]
         );
       } catch (error) {
         console.error('Error inserting message:', error);

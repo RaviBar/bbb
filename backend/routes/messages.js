@@ -128,7 +128,7 @@ module.exports = (io) => {
            SET status = 'responded'
          WHERE customer_id = ?
            AND is_from_customer = 1
-           AND status = 'pending'
+           AND status IN ('pending', 'assigned')
            AND timestamp <= ?`,
         [customer_id, replyTs]
       );
