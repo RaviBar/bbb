@@ -80,7 +80,7 @@ const ConversationView = ({ agent }) => {
         return;
       }
 
-      const response = await apiFetch(`/api/messages/${latestCustomerMessage.id}/respond`, {
+      const response = await apiFetch(`/api/messages/${customerId}/respond`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,6 +93,9 @@ const ConversationView = ({ agent }) => {
 
       if (response.ok) {
         setNewMessage('');
+        // You might want to call fetchMessages() here too
+        // to see your new message immediately.
+        // await fetchMessages(); 
       } else {
         const errorData = await response.json();
         alert(`Failed to send message: ${errorData.error}`);
