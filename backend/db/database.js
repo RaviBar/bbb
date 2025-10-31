@@ -189,7 +189,7 @@ class Database {
   run(sql, params = []) {
     if (this.type === 'postgres') {
       const pgSql = sql.replace(/\?/g, (match, index) => `$${index + 1}`);
-      if (pgsql.trim().toUpperCase().startsWith('INSERT') && !pgsql.includes('RETURNING')) {
+      if (pgSql.trim().toUpperCase().startsWith('INSERT') && !pgSql.includes('RETURNING')) {
         sql = pgSql + ' RETURNING id';
       } else {
         sql = pgSql;
